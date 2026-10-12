@@ -1,62 +1,58 @@
-# Güven Tercüme Web Sitesi
+# Güven Tercüme
 
-Güven Tercüme için hazırlanmış tek sayfalık, hızlı açılan Vite + TypeScript web sitesi.
+Vite + TypeScript arayüzü ve Express API'si olan tam yığın tercüme teklif uygulaması.
 
-## Geliştirme
+## Gereksinimler
 
-```bash
+- Node.js 22.12 veya üzeri
+- SMTP bilgileri yalnızca otomatik e-posta gönderimi için gereklidir; SMTP kurulmasa da teklifler yönetim panelinde saklanır.
+
+## Yerel kurulum
+
+```powershell
 npm install
+Copy-Item .env.example .env
+```
+
+`.env` içinde uzun ve benzersiz bir `ADMIN_PASSWORD` belirleyin. E-posta bildirimi için `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` ve gerekirse `SMTP_FROM` alanlarını doldurun.
+
+```powershell
 npm run dev
 ```
 
-Yerel önizleme varsayılan olarak `http://localhost:5173/` adresinde açılır.
+Site `http://localhost:5173/`, yönetim paneli `http://localhost:5173/admin` adresindedir. Geliştirme sunucusu API'yi `localhost:3000` üzerinde çalıştırır ve arayüz isteklerini proxy eder.
 
-## Üretim build
+`.env` oluşturmazsanız API yalnızca o çalıştırma için geçici yönetici parolası üretip terminale yazar. Node süreci yeniden başlayınca bu parola değişir; normal kullanımda `.env` tanımlayın.
 
-```bash
+## Teklif ve tarife özellikleri
+
+- PDF (metin katmanı bulunan), DOCX ve TXT kabul edilir; tek dosya en fazla 10 MB ve PDF en fazla 500 sayfa olabilir.
+- DOCX ve PDF içeriği bellekte analiz edilir. Belge içeriği diske kaydedilmez; tarife, dosya adı, sözcük sayısı, dil çifti ve müşterinin iletişim bilgileri saklanır.
+- Taranmış/görüntü tabanlı PDF için OCR bu sürümde yoktur. Metin seçilebilir PDF kullanın; okunabilir metin yoksa uygulama yüklemeyi açıkça reddeder.
+- Dil otomatik tahmin edilir; tahmin desteklenmiyorsa veya yanlışsa kullanıcı 183 dilden kaynak dili kendisi seçebilir.
+- Fiyat kaynak dilin yönetici panelindeki TL/sözcük tarifesi × sözcük sayısıdır. Başlangıçtaki 2,50 TL değerleri örnek tarifedir; gerçek fiyatları yayına çıkmadan önce `/admin` içinden ayarlayın.
+- Ad soyad, geçerli e-posta, telefon ve bilgilendirme onayı teklif göndermek için zorunludur.
+- SMTP tanımlıysa bildirim yönetici panelinde girilen e-posta adresine gönderilir. SMTP yoksa veya gönderim başarısızsa teklif yine kaydedilir ve panelde durumu gösterilir.
+
+## Üretim build ve çalıştırma
+
+```powershell
+npm ci
 npm run build
+npm start
 ```
 
-Yayınlanacak statik dosyalar `dist/` klasöründe oluşur.
+Express, `dist/` sitesini ve API'yi aynı porttan sunar. Üretim sunucusunda `.env` tanımlayın ve Node uygulamasını PM2, systemd ya da hosting firmasının Node.js uygulama yöneticisi ile sürekli çalışır tutun. `server-data/store.json` uygulama tarafından oluşturulur; sunucunun bu klasöre yazma izni olmalı ve düzenli yedeği alınmalıdır.
 
-## Yayına alma seçenekleri
+Bu artık yalnızca statik site değildir. `dist/` içeriğini tek başına `public_html` içine yüklemek teklif API'sini, yönetici girişini ve depolamayı çalıştırmaz. Node.js uygulaması çalıştırabilen VPS veya hosting gerekir; cPanel kullanacaksanız hosting paketinde Node.js uygulaması desteğini doğrulayın. Netlify/Vercel'e statik yayın yapacaksanız ayrıca API'yi serverless işleve ve kalıcı depolamayı uygun veritabanına taşımanız gerekir.
 
-### 1. Netlify
-
-1. Projeyi GitHub'a yükleyin.
-2. Netlify'da `Add new site > Import an existing project` seçin.
-3. Build command: `npm run build`
-4. Publish directory: `dist`
-5. Domain settings bölümünden `guventercume.com` ve `www.guventercume.com` ekleyin.
-6. Domain sağlayıcısında Netlify'ın verdiği DNS kayıtlarını tanımlayın.
-
-### 2. Vercel
-
-1. Projeyi GitHub'a yükleyin.
-2. Vercel'de yeni proje olarak import edin.
-3. Framework preset: `Vite`
-4. Build command: `npm run build`
-5. Output directory: `dist`
-6. Domains bölümünden `guventercume.com` ve `www.guventercume.com` ekleyin.
-7. Vercel'in verdiği A/CNAME kayıtlarını domain DNS paneline girin.
-
-### 3. Klasik hosting / cPanel
-
-1. `npm run build` çalıştırın.
-2. `dist/` içindeki tüm dosyaları hosting hesabındaki `public_html` klasörüne yükleyin.
-3. Domain zaten bu hostinge yönlüyse site açılır. Değilse nameserver veya DNS kayıtlarını hosting firmasının verdiği değerlere çevirin.
-
-## Domain DNS notu
-
-WHOIS kaydına göre domain şu anda `W1.HOSTHANE.COM` ve `W2.HOSTHANE.COM` nameserver'larını kullanıyor. Aynı hosting ile devam edecekseniz genellikle sadece `dist/` dosyalarını `public_html` içine yüklemek yeterlidir. Netlify veya Vercel'e geçecekseniz DNS panelinde ilgili A/CNAME kayıtlarını yeni platformun verdiği değerlerle güncellemeniz gerekir.
+Domaini, Node uygulaması ve HTTPS çalışır hale geldikten sonra hostingin verdiği A/CNAME veya nameserver değerleriyle yönlendirin. WHOIS ekinde mevcut nameserver'lar `W1.HOSTHANE.COM` ve `W2.HOSTHANE.COM` görünüyordu; mevcut Hosthane paketinin Node.js destekleyip desteklemediğini teyit edin.
 
 ## İletişim bilgileri
 
-Mevcut sitedeki iletişim sayfasından alınan bilgiler sayfaya işlendi:
-
 - Merkez telefon: `0212 343 80 65`
-- Merkez GSM / WhatsApp: `0533 519 30 17`
+- GSM / WhatsApp: `0533 519 30 17`
 - E-posta: `guventercume@hotmail.com`
 - Adres: `Vatan Caddesi, Şadoğlu İşhanı No:18/2 D:8 Çağlayan - İstanbul`
 
-Form şu anda `mailto:guventercume@hotmail.com` ile çalışır. Daha profesyonel kullanım için Netlify Forms, Formspree, özel backend API veya CRM entegrasyonu bağlanabilir.
+Talep kayıtları müşteri iletişim bilgileri içerir. Yayına almadan önce KVKK bilgilendirme/metnini şirketinizin hukuk ve operasyon sürecine göre tamamlayın, erişimi sınırlayın ve saklama-silme süresi belirleyin. Yönetici parolası ve SMTP parolalarını Git'e eklemeyin.

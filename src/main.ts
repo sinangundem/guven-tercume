@@ -2,7 +2,7 @@ import './style.css'
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header class="site-header">
     <a class="brand" href="#top" aria-label="Güven Tercüme ana sayfa">
-      <span class="brand-mark">GT</span>
+      <img class="brand-logo" src="/guven-logo.svg" alt="Güven Tercüme" />
       <span>
         <strong>Güven Tercüme</strong>
         <small>40 yıllık tecrübe</small>
@@ -38,33 +38,67 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         </div>
       </div>
 
-      <aside class="quote-card" id="teklif" aria-label="Hızlı teklif formu">
-        <h2>Hızlı teklif isteyin</h2>
-        <p>Belge türünü ve dil çiftini gönderin, en kısa sürede dönüş yapalım.</p>
-        <form action="mailto:guventercume@hotmail.com" method="post" enctype="text/plain">
-          <label>
-            Ad Soyad
-            <input type="text" name="name" autocomplete="name" placeholder="Adınız Soyadınız" />
+      <aside class="quote-card" id="teklif" aria-label="Belge yükleme ve fiyat hesaplama">
+        <div class="quote-card-heading">
+          <div>
+            <p class="eyebrow">Anında fiyat hesabı</p>
+            <h2>Belgeni yükle</h2>
+          </div>
+          <span class="secure-mark" aria-label="Gizlilik">GİZLİ</span>
+        </div>
+        <p>Dosyadaki sözcükleri sayalım, dili tahmin edelim ve yaklaşık fiyatı gösterelim.</p>
+        <form id="estimate-form">
+          <label class="upload-label" for="document-file">
+            <span class="upload-icon" aria-hidden="true">↑</span>
+            <strong>Belge seç veya buraya bırak</strong>
+            <small>PDF, DOCX veya TXT · en fazla 10 MB</small>
+            <input id="document-file" type="file" name="document" accept=".pdf,.docx,.txt,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required />
           </label>
-          <label>
-            Telefon veya e-posta
-            <input type="text" name="contact" autocomplete="email" placeholder="Size ulaşabileceğimiz bilgi" />
+          <p class="file-status" id="file-status" role="status">Dosya analiz edildiğinde sözcük sayısı burada görünür.</p>
+          <div class="language-fields">
+            <label>
+              Kaynak dil
+              <select id="source-language" name="sourceLanguage" required disabled>
+                <option value="">Önce belge yükleyin</option>
+              </select>
+            </label>
+            <label>
+              Hedef dil
+              <select id="target-language" name="targetLanguage" required disabled>
+                <option value="">Hedef dil seçin</option>
+              </select>
+            </label>
+          </div>
+          <div class="estimate-result" aria-live="polite">
+            <span id="word-count">Sözcük sayısı: -</span>
+            <strong id="estimate-total">Tahmini tutar: -</strong>
+            <small id="estimate-note">Tarife kaynak dile göre hesaplanır.</small>
+          </div>
+          <div class="contact-fields">
+            <label>
+              Ad Soyad
+              <input type="text" name="customerName" autocomplete="name" placeholder="Adınız Soyadınız" required maxlength="140" />
+            </label>
+            <label>
+              E-posta
+              <input type="email" name="email" autocomplete="email" placeholder="ornek@eposta.com" required maxlength="180" />
+            </label>
+            <label>
+              Telefon
+              <input type="tel" name="phone" autocomplete="tel" placeholder="05xx xxx xx xx" required minlength="10" maxlength="24" />
+            </label>
+            <label>
+              Not <span class="optional-label">İsteğe bağlı</span>
+              <textarea name="note" rows="2" placeholder="Teslim tarihi veya onay ihtiyacı"></textarea>
+            </label>
+          </div>
+          <label class="consent-label">
+            <input type="checkbox" name="privacyConsent" required />
+            <span>Teklif talebim için iletişim bilgilerimin kullanılmasını kabul ediyorum.</span>
           </label>
-          <label>
-            Hizmet türü
-            <select name="service">
-              <option>Yeminli tercüme</option>
-              <option>Noter onaylı tercüme</option>
-              <option>Apostil takibi</option>
-              <option>Kurumsal tercüme</option>
-            </select>
-          </label>
-          <label>
-            Kısa açıklama
-            <textarea name="message" rows="4" placeholder="Belge türü, kaynak/hedef dil ve teslim tarihi"></textarea>
-          </label>
-          <button type="submit">Talep oluştur</button>
-          <small>Talebiniz e-posta programınız üzerinden Güven Tercüme'ye iletilir. Belgeleriniz gizlilikle değerlendirilir.</small>
+          <button type="submit" id="quote-submit" disabled>Teklif talebi gönder</button>
+          <small class="form-note">Dosya metni yalnızca analiz sırasında işlenir ve saklanmaz. Talep ve iletişim bilgileriniz Güven Tercüme teklif takibi için kaydedilir.</small>
+          <p class="form-message" id="form-message" role="status"></p>
         </form>
       </aside>
     </section>
@@ -207,5 +241,12 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <footer class="site-footer">
     <strong>Güven Tercüme Bürosu</strong>
     <span>Vatan Caddesi, Şadoğlu İşhanı No:18/2 D:8 Çağlayan - İstanbul | 0212 343 80 65</span>
+    <a href="/admin">Yönetici girişi</a>
   </footer>
 `
+
+ if (window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
+   void import('./admin.ts')
+ } else {
+   void import('./estimate.ts')
+ }
