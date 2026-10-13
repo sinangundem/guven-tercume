@@ -36,7 +36,7 @@ function renderDialog() {
   element.innerHTML = `
     <div class="auth-panel">
       <button class="auth-close" type="button" data-close aria-label="Kapat">×</button>
-      <a class="brand auth-logo" href="/" aria-label="Güven Tercüme">${brandMarkup()}</a>
+      <a class="brand auth-brand" href="/" aria-label="Güven Tercüme">${brandMarkup()}</a>
       <h2 id="auth-title">${titles[mode]}</h2>
       ${notice ? `<p class="auth-notice">${escapeHtml(notice)}</p>` : ''}
       ${isConfigured ? '' : '<p class="auth-error">Hesap sistemi henüz yapılandırılmadı (Supabase anahtarları eksik).</p>'}

@@ -268,7 +268,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   </main>
 
   <footer class="site-footer">
-    <strong>Güven Tercüme Bürosu</strong>
+    <img class="footer-logo" src="/logo.png" alt="Güven Tercüme" width="107" height="64" />
     <span>Vatan Caddesi, Şadoğlu İşhanı No:18/2 D:8 Çağlayan - İstanbul | 0212 343 80 65</span>
   </footer>
 

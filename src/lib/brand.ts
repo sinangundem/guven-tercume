@@ -1,4 +1,3 @@
-// Üst bar, giriş penceresi ve yönetim sayfalarında ortak kullanılan marka kilidi.
-export const brandMarkup = () => `
-  <span class="brand-mark" aria-hidden="true">GT</span>
-  <span class="brand-text"><strong>GÜVEN TERCÜME</strong><small>Yeminli Tercüme Bürosu</small></span>`
+// Gerçek logo: üst bar, giriş penceresi ve yönetim sayfalarında ortak.
+export const brandMarkup = () =>
+  '<img class="brand-logo" src="/logo.png" alt="Güven Tercüme" width="101" height="60" />'
