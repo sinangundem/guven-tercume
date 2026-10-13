@@ -3,7 +3,7 @@ import { getAuth, onAuthChange } from './lib/auth.ts'
 import { openAuthDialog } from './auth-ui.ts'
 import { isConfigured, supabase } from './lib/supabase.ts'
 import { allLanguages, languageLabel } from './lib/languages.ts'
-import { formatMoney, formatRate } from './lib/format.ts'
+import { formatMoney } from './lib/format.ts'
 
 type Rate = { code: string; name: string; rate: number }
 type Analysis = { fileName: string; wordCount: number; detectedLanguage: string | null }
@@ -63,10 +63,10 @@ function refreshEstimate() {
       : 'Fiyatı görmek için ücretsiz hesap gerekir.'
   } else if (analysis && rate && targetSelect.value) {
     totalLabel.textContent = `Tahmini tutar: ${formatMoney(Math.round(analysis.wordCount * rate.rate * 100) / 100)}`
-    estimateNote.textContent = `${formatRate(rate.rate)} TL / sözcük · kesin fiyat belge kontrolünden sonra belirlenir.`
+    estimateNote.textContent = 'Kesin fiyat belge kontrolünden sonra belirlenir.'
   } else {
     totalLabel.textContent = 'Tahmini tutar: -'
-    estimateNote.textContent = 'Tarife kaynak dile göre hesaplanır.'
+    estimateNote.textContent = 'Fiyat dil seçiminize göre hesaplanır.'
   }
   submitButton.disabled = !analysis || !sourceSelect.value || !targetSelect.value || busy || (signedIn && !rate)
   submitButton.textContent = signedIn ? 'Teklif talebi gönder' : 'Giriş yap ve talebi gönder'
@@ -112,6 +112,13 @@ async function runAnalysis(file: File) {
     if (!targetSelect.value) targetSelect.value = sourceSelect.value === 'tr' ? 'en' : 'tr'
     savePending()
     showMessage('Dosya analiz edildi. Dilleri kontrol edip iletişim bilgilerinizi girin.', 'success')
+    if (getAuth().ready && !getAuth().session) {
+      awaitingLogin = true
+      openAuthDialog({
+        mode: 'signup',
+        message: `Belgenizde ${result.wordCount.toLocaleString('tr-TR')} sözcük bulundu. Fiyatı görmek ve teklif almak için ücretsiz hesap oluşturun; analiz sonucunuz korunur.`,
+      })
+    }
   } catch (error) {
     if (id !== runId) return
     fileStatus.textContent = file.name

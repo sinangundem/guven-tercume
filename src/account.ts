@@ -2,7 +2,7 @@ import './admin.css'
 import { onAuthChange } from './lib/auth.ts'
 import { openAuthDialog } from './auth-ui.ts'
 import { isConfigured, supabase } from './lib/supabase.ts'
-import { escapeHtml, formatMoney, formatRate } from './lib/format.ts'
+import { escapeHtml, formatMoney } from './lib/format.ts'
 import { languageLabel } from './lib/languages.ts'
 import { renderShell } from './page-shell.ts'
 
@@ -40,7 +40,7 @@ async function load(userId: string, name: string) {
         ${quotes.map((quote) => `<tr>
           <td><strong>${escapeHtml(quote.id.slice(0, 8).toUpperCase())}</strong><small>${escapeHtml(new Date(quote.created_at).toLocaleString('tr-TR'))}</small></td>
           <td><strong>${escapeHtml(quote.file_name)}</strong><small>${escapeHtml(languageLabel(quote.source_language))} → ${escapeHtml(languageLabel(quote.target_language))}</small><small>${quote.word_count.toLocaleString('tr-TR')} sözcük</small></td>
-          <td><strong>${formatMoney(Number(quote.estimated_total))}</strong><small>${formatRate(Number(quote.rate_per_word))} TL / sözcük</small></td>
+          <td><strong>${formatMoney(Number(quote.estimated_total))}</strong></td>
           <td><span class="status-pill ${quote.status}">${statusLabels[quote.status]}</span></td>
         </tr>`).join('')}</tbody></table></div>`
         : '<div class="empty-state"><span>0</span><h3>Henüz teklif talebiniz yok</h3><p>Belgenizi yükleyerek ilk teklifinizi alın.</p></div>'}
