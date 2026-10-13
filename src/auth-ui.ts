@@ -5,6 +5,7 @@ import {
 } from './lib/auth.ts'
 import { isConfigured } from './lib/supabase.ts'
 import { escapeHtml } from './lib/format.ts'
+import { brandMarkup } from './lib/brand.ts'
 
 type Mode = 'signin' | 'signup' | 'reset' | 'recovery'
 
@@ -35,7 +36,7 @@ function renderDialog() {
   element.innerHTML = `
     <div class="auth-panel">
       <button class="auth-close" type="button" data-close aria-label="Kapat">×</button>
-      <img class="auth-logo" src="/guven-logo.svg" alt="Güven Tercüme" />
+      <a class="brand auth-logo" href="/" aria-label="Güven Tercüme">${brandMarkup()}</a>
       <h2 id="auth-title">${titles[mode]}</h2>
       ${notice ? `<p class="auth-notice">${escapeHtml(notice)}</p>` : ''}
       ${isConfigured ? '' : '<p class="auth-error">Hesap sistemi henüz yapılandırılmadı (Supabase anahtarları eksik).</p>'}

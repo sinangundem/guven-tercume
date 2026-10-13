@@ -1,19 +1,19 @@
 import './style.css'
+import './site.css'
 import { initAuth } from './lib/auth.ts'
+import { brandMarkup } from './lib/brand.ts'
 import { mountAuthMenu } from './auth-ui.ts'
+
+const greetings = ['Merhaba', 'Hello', 'Hallo', 'Bonjour', 'Hola', 'Ciao', 'Olá', 'Привет', 'مرحبا', '你好', 'こんにちは', '안녕하세요', 'Γειά σου', 'שלום', 'नमस्ते', 'Hej', 'Cześć', 'Salam']
+const greetingSpans = [...greetings, ...greetings].map((word) => `<span>${word}</span>`).join('')
 
 function renderHome() {
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header class="site-header">
-    <a class="brand" href="#top" aria-label="Güven Tercüme ana sayfa">
-      <img class="brand-logo" src="/guven-logo.svg" alt="Güven Tercüme" />
-      <span>
-        <strong>Güven Tercüme</strong>
-        <small>40 yıllık tecrübe</small>
-      </span>
-    </a>
-    <nav class="nav" aria-label="Ana menü">
+    <a class="brand" href="#top" aria-label="Güven Tercüme ana sayfa">${brandMarkup()}</a>
+    <nav class="nav" id="site-nav" aria-label="Ana menü">
       <a href="#hizmetler">Hizmetler</a>
+      <a href="#belgeler">Belgeler</a>
       <a href="#surec">Süreç</a>
       <a href="#fiyat">Fiyat</a>
       <a href="#sss">SSS</a>
@@ -22,6 +22,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <div class="header-actions">
       <a class="header-cta" href="tel:+902123438065">Hemen ara</a>
       <div id="auth-slot"></div>
+      <button class="menu-toggle" type="button" aria-expanded="false" aria-controls="site-nav" aria-label="Menüyü aç"><span></span><span></span><span></span></button>
     </div>
   </header>
 
@@ -111,11 +112,13 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       </aside>
     </section>
 
+    <div class="greeting-strip" aria-hidden="true"><div class="greeting-track">${greetingSpans}</div></div>
+
     <section class="stats-band" aria-label="Öne çıkanlar">
-      <div><strong>70+</strong><span>Dil çifti</span></div>
-      <div><strong>24 saat</strong><span>Acil teslim seçeneği</span></div>
       <div><strong>40 yıl</strong><span>Büro deneyimi</span></div>
-      <div><strong>Gizli</strong><span>Belge işleme süreci</span></div>
+      <div><strong>183 dil</strong><span>Tercüme dili seçeneği</span></div>
+      <div><strong>Ücretsiz</strong><span>Kurye ve kargo</span></div>
+      <div><strong>Noter yeminli</strong><span>Tercüman kadrosu</span></div>
     </section>
 
     <section class="section intro-section">
@@ -159,6 +162,23 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       </div>
     </section>
 
+    <section class="section docs-section" id="belgeler">
+      <div class="section-heading">
+        <p class="eyebrow">Çevirisini yaptığımız belgeler</p>
+        <h2>Resmi başvurularda en sık istenen evraklar.</h2>
+      </div>
+      <div class="doc-grid">
+        <article><h3>Diploma ve transkript</h3><p>Üniversite, denklik ve burs başvuruları.</p></article>
+        <article><h3>Doğum, evlilik, nüfus kaydı</h3><p>Konsolosluk, göç ve aile birleşimi dosyaları.</p></article>
+        <article><h3>Pasaport ve kimlik</h3><p>Vize, oturum ve resmi kurum işlemleri.</p></article>
+        <article><h3>Mahkeme kararı, vekaletname</h3><p>Hukuki süreçler ve noter işlemleri.</p></article>
+        <article><h3>Sözleşme ve ticari evrak</h3><p>Şirket, ihale ve yürütücü belgeleri.</p></article>
+        <article><h3>Tıbbi rapor ve epikriz</h3><p>Sağlık, sigorta ve tedavi dosyaları.</p></article>
+        <article><h3>Sabıka kaydı ve adli belgeler</h3><p>İş, vize ve resmi başvurular.</p></article>
+        <article><h3>Teknik ve finansal doküman</h3><p>Rapor, katalog ve bilanço terminolojisi.</p></article>
+      </div>
+    </section>
+
     <section class="split-section" id="surec">
       <div class="visual-panel" role="img" aria-label="Belgeler üzerinde çalışan tercüme ekibi"></div>
       <div class="process-panel">
@@ -197,15 +217,16 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       </div>
     </section>
 
-    <section class="section testimonials">
+    <section class="section assurance" aria-label="Güvencelerimiz">
       <div class="section-heading">
-        <p class="eyebrow">Müşteri deneyimi</p>
-        <h2>Zamanı kritik evraklarda net iletişim ve temiz teslim.</h2>
+        <p class="eyebrow">Neden Güven Tercüme?</p>
+        <h2>40 yıldır aynı ilke: güven ve gizlilik.</h2>
       </div>
-      <div class="testimonial-grid">
-        <blockquote>“Konsolosluk dosyam için hem yeminli çeviri hem noter süreci hızlı tamamlandı.”<cite>Vize başvurusu</cite></blockquote>
-        <blockquote>“Şirket sözleşmelerinde terminoloji tutarlıydı, revizyon süreci çok rahattı.”<cite>Kurumsal müşteri</cite></blockquote>
-        <blockquote>“Diploma ve transkript çevirimi kargo ile zamanında teslim aldım.”<cite>Akademik başvuru</cite></blockquote>
+      <div class="assurance-grid">
+        <article><h3>Noter yeminli tercümanlar</h3><p>Resmi belgelerinizi noter yeminli mütercim-tercümanlarla hazırlıyoruz.</p></article>
+        <article><h3>Gizlilik</h3><p>Belgeleriniz yalnızca çeviri amacıyla ve gizlilik prensibiyle işlenir.</p></article>
+        <article><h3>Ücretsiz kurye ve kargo</h3><p>Türkiye'nin neresinde olursanız olun belgeleriniz adresinize ulaşır.</p></article>
+        <article><h3>Resmi işlem takibi</h3><p>Noter ve kaymakamlık apostil gibi resmi işlemleri sizin için takip ederiz.</p></article>
       </div>
     </section>
 
@@ -225,7 +246,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         </details>
         <details>
           <summary>Acil çeviri mümkün mü?</summary>
-          <p>Belge uzunluğu ve dil çiftine bağlı olarak aynı gün veya 24 saat içinde teslim seçenekleri değerlendirilebilir.</p>
+          <p>Acil ihtiyaçlarınız için telefon veya WhatsApp ile ulaşın; belge uzunluğu ve dil çiftine göre en kısa teslim süresi planlanır.</p>
         </details>
         <details>
           <summary>Hangi dillerde hizmet veriyorsunuz?</summary>
@@ -250,10 +271,28 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <strong>Güven Tercüme Bürosu</strong>
     <span>Vatan Caddesi, Şadoğlu İşhanı No:18/2 D:8 Çağlayan - İstanbul | 0212 343 80 65</span>
   </footer>
+
+  <nav class="mobile-bar" aria-label="Hızlı erişim">
+    <a class="primary" href="#teklif">Teklif al</a>
+    <a href="tel:+902123438065">Ara</a>
+    <a href="https://wa.me/905335193017" target="_blank" rel="noreferrer">WhatsApp</a>
+  </nav>
 `
 }
 
 const path = window.location.pathname.replace(/\/+$/, '') || '/'
+
+function setupMenu() {
+  const header = document.querySelector<HTMLElement>('.site-header')!
+  const toggle = header.querySelector<HTMLButtonElement>('.menu-toggle')!
+  const setOpen = (open: boolean) => {
+    header.classList.toggle('menu-open', open)
+    toggle.setAttribute('aria-expanded', String(open))
+    toggle.setAttribute('aria-label', open ? 'Menüyü kapat' : 'Menüyü aç')
+  }
+  toggle.addEventListener('click', () => setOpen(!header.classList.contains('menu-open')))
+  header.querySelectorAll('.nav a').forEach((link) => link.addEventListener('click', () => setOpen(false)))
+}
 if (path === '/admin') {
   void import('./admin.ts')
 } else if (path === '/hesabim') {
@@ -261,6 +300,7 @@ if (path === '/admin') {
 } else {
   renderHome()
   mountAuthMenu(document.querySelector<HTMLElement>('#auth-slot')!)
+  setupMenu()
   void import('./estimate.ts')
   void initAuth()
 }
