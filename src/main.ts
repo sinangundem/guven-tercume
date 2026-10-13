@@ -3,6 +3,7 @@ import './site.css'
 import { initAuth } from './lib/auth.ts'
 import { brandMarkup } from './lib/brand.ts'
 import { mountAuthMenu } from './auth-ui.ts'
+import './modern.css'
 
 const greetings = ['Merhaba', 'Hello', 'Hallo', 'Bonjour', 'Hola', 'Ciao', 'Olá', 'Привет', 'مرحبا', '你好', 'こんにちは', '안녕하세요', 'Γειά σου', 'שלום', 'नमस्ते', 'Hej', 'Cześć', 'Salam']
 const greetingSpans = [...greetings, ...greetings].map((word) => `<span>${word}</span>`).join('')

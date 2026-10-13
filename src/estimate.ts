@@ -148,7 +148,11 @@ function handleFile(file: File | undefined) {
   if (!getFileKind(file)) {
     fileStatus.textContent = file.name
     setLanguagesEnabled(false)
-    showMessage('PDF, DOCX, TXT veya fotoğraf (JPG, PNG, WEBP) yükleyin.')
+    showMessage(
+      /\.hei[cf]$/i.test(file.name)
+        ? 'HEIC fotoğraf biçimi desteklenmiyor. Fotoğrafı JPG veya PNG olarak gönderin (iPhone: Ayarlar > Kamera > Biçimler > En Uyumlu).'
+        : 'PDF, DOCX, TXT veya fotoğraf (JPG, PNG, WEBP) yükleyin.',
+    )
     refreshEstimate()
     return
   }

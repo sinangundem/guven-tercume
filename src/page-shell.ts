@@ -1,4 +1,5 @@
 import './admin.css'
+import './modern-admin.css'
 import { initAuth } from './lib/auth.ts'
 import { mountAuthMenu } from './auth-ui.ts'
 import { brandMarkup } from './lib/brand.ts'

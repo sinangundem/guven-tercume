@@ -1,0 +1,104 @@
+/* Yönetim ve hesap sayfaları için tema; admin.css'den sonra yüklenir. */
+
+.admin-header {
+  border-bottom: 1px solid rgba(225, 231, 241, 0.9);
+  background: rgba(255, 255, 255, 0.78);
+  backdrop-filter: saturate(160%) blur(16px);
+}
+
+.admin-primary {
+  border-radius: 12px;
+  background: var(--grad-primary);
+  box-shadow: 0 12px 26px -12px rgba(37, 99, 235, 0.7);
+  color: #fff;
+  transition: transform 0.15s, box-shadow 0.15s, filter 0.15s;
+}
+
+.admin-primary:hover {
+  box-shadow: 0 16px 30px -12px rgba(37, 99, 235, 0.85);
+  filter: brightness(1.06);
+  transform: translateY(-1px);
+}
+
+.admin-secondary {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--sage-dark);
+}
+
+.admin-secondary:hover {
+  border-color: #9db8f3;
+}
+
+.settings-strip input,
+.search-field input,
+.rate-input input,
+.quote-status {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #f8faff;
+}
+
+.settings-strip input:focus,
+.search-field input:focus,
+.rate-input input:focus {
+  border-color: #2563eb;
+  background: #fff;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.14);
+  outline: none;
+}
+
+.admin-intro h1,
+.panel-heading h2 {
+  letter-spacing: -0.03em;
+}
+
+.admin-tabs button.selected {
+  border-bottom-color: #2563eb;
+  color: var(--sage-dark);
+}
+
+.admin-tabs button span,
+.empty-state > span,
+.status-pill {
+  background: #e8efff;
+  color: #1d4ed8;
+}
+
+.status-pill.new {
+  background: #fff6e5;
+  color: #8a5a00;
+}
+
+.settings-strip,
+.rate-table-wrap,
+.quote-table-wrap {
+  border-radius: 16px;
+}
+
+.rate-table th,
+.quote-table th {
+  background: #eef3fb;
+  color: var(--sage-dark);
+}
+
+.rate-table th,
+.rate-table td,
+.quote-table th,
+.quote-table td {
+  border-bottom-color: #eef1f7;
+}
+
+.empty-state {
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.6);
+}
+
+.smtp-state.ready {
+  color: #0f7a4d;
+}
+
+.smtp-state.missing {
+  color: #9a6200;
+}
