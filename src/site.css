@@ -252,7 +252,6 @@ h2 {
   }
 
   .hero-section {
-    min-height: auto;
     padding-top: 28px;
     gap: 28px;
   }
@@ -393,6 +392,52 @@ h2 {
     min-height: 40px;
     padding: 0 10px;
     font-size: 0.8rem;
+  }
+}
+
+/* Tam ekran sayfa bölümleri: menü bağlantıları her bölümü ekranı dolduracak şekilde açar. */
+:root {
+  --header-h: 78px;
+  --bar-h: 0px;
+}
+
+html {
+  scroll-snap-type: y proximity;
+  scroll-padding-top: var(--header-h);
+}
+
+main > .hero-section,
+main > .section:not(.intro-section),
+main > .split-section,
+main > .contact-section {
+  min-height: calc(100svh - var(--header-h) - var(--bar-h));
+  scroll-snap-align: start;
+}
+
+main > .section:not(.intro-section):not(.faq-section) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+main > .faq-section,
+main > .split-section {
+  align-content: center;
+}
+
+#teklif {
+  scroll-margin-top: 12px;
+}
+
+@media (max-width: 760px) {
+  :root {
+    --bar-h: 76px;
+  }
+}
+
+@media (max-width: 420px) {
+  :root {
+    --header-h: 66px;
   }
 }
 

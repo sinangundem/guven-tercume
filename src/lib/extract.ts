@@ -50,16 +50,17 @@ async function readText(file: Blob) {
 }
 
 async function extractPdfText(file: File) {
-  // Legacy sürüm eski iOS Safari'de çalışır; modül ad alanı bazen default altında gelir.
+  // pdf.js 3.x legacy (ES5) eski iPhone'larda çalışır; 4.x+ sürümler iOS'ta "undefined is not a function" veriyordu.
   const [pdfModule, worker] = await Promise.all([
-    import('pdfjs-dist/legacy/build/pdf.mjs'),
-    import('pdfjs-dist/legacy/build/pdf.worker.min.mjs?url'),
+    import('pdfjs-dist/legacy/build/pdf.js'),
+    import('pdfjs-dist/legacy/build/pdf.worker.min.js?url'),
   ])
   const pdfjs = pdfModule.GlobalWorkerOptions
     ? pdfModule
     : (pdfModule as unknown as { default: typeof pdfModule }).default
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default
-  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(await readBuffer(file)) })
+  // isEvalSupported:false, pdf.js 3.x'teki bilinen betik çalıştırma açığını (CVE-2024-4367) kapatır.
+  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(await readBuffer(file)), isEvalSupported: false })
   try {
     const document = await loadingTask.promise
     if (document.numPages > 500) throw new UserError('PDF 500 sayfadan uzun olamaz.')
