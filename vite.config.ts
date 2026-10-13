@@ -42,4 +42,15 @@ function apiDevServer(): Plugin {
   }
 }
 
-export default defineConfig({ plugins: [apiDevServer()] })
+export default defineConfig({
+  plugins: [apiDevServer()],
+  build: {
+    rolldownOptions: {
+      output: {
+        // Worker dosyası .mjs yerine .js olarak yayınlanır; tüm sunucular JavaScript MIME türü verir.
+        assetFileNames: (asset) =>
+          asset.names.some((name) => name.endsWith('.mjs')) ? 'assets/[name]-[hash].js' : 'assets/[name]-[hash][extname]',
+      },
+    },
+  },
+})

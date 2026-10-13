@@ -23,6 +23,32 @@ export function isOcrSupported(languageCode: string) {
   return languageCode in ocrLanguageCodes
 }
 
+// iOS'ta Dosyalar/iCloud kaynaklı dosyalarda Blob okuma yöntemleri farklı davranabilir; FileReader yedek yoldur.
+function readWithReader(file: Blob) {
+  return new Promise<ArrayBuffer>((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as ArrayBuffer)
+    reader.onerror = () => reject(reader.error ?? new Error('Dosya okunamadı'))
+    reader.readAsArrayBuffer(file)
+  })
+}
+
+async function readBuffer(file: Blob) {
+  try {
+    return await file.arrayBuffer()
+  } catch {
+    return readWithReader(file)
+  }
+}
+
+async function readText(file: Blob) {
+  try {
+    return await file.text()
+  } catch {
+    return new TextDecoder().decode(await readWithReader(file))
+  }
+}
+
 async function extractPdfText(file: File) {
   // Legacy sürüm eski iOS Safari'de çalışır; modül ad alanı bazen default altında gelir.
   const [pdfModule, worker] = await Promise.all([
@@ -33,7 +59,7 @@ async function extractPdfText(file: File) {
     ? pdfModule
     : (pdfModule as unknown as { default: typeof pdfModule }).default
   pdfjs.GlobalWorkerOptions.workerSrc = worker.default
-  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) })
+  const loadingTask = pdfjs.getDocument({ data: new Uint8Array(await readBuffer(file)) })
   try {
     const document = await loadingTask.promise
     if (document.numPages > 500) throw new UserError('PDF 500 sayfadan uzun olamaz.')
@@ -52,7 +78,7 @@ async function extractPdfText(file: File) {
 
 async function extractDocxText(file: File) {
   const { default: JSZip } = await import('jszip')
-  const archive = await JSZip.loadAsync(await file.arrayBuffer())
+  const archive = await JSZip.loadAsync(await readBuffer(file))
   const documentFile = archive.file('word/document.xml')
   if (!documentFile) throw new UserError('DOCX belgesinde metin içeriği bulunamadı.')
   const xml = await documentFile.async('string')
@@ -118,7 +144,7 @@ export async function analyzeFile(
   try {
     if (kind === 'pdf') text = await extractPdfText(file)
     else if (kind === 'docx') text = await extractDocxText(file)
-    else if (kind === 'txt') text = await file.text()
+    else if (kind === 'txt') text = await readText(file)
     else {
       if (!options.ocrLanguage || !isOcrSupported(options.ocrLanguage)) {
         throw new UserError('Fotoğraf okuma bu dil için desteklenmiyor. PDF, DOCX veya TXT yükleyin.')
@@ -128,7 +154,8 @@ export async function analyzeFile(
   } catch (error) {
     if (error instanceof UserError) throw error
     console.error('Belge okunamadı', error)
-    throw new Error('Belge okunamadı. Dosya bozuk veya parola korumalı olabilir; farklı bir biçimde (DOCX, TXT veya net bir fotoğraf) tekrar deneyin.')
+    const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
+    throw new Error(`Belge okunamadı. Dosya bozuk veya parola korumalı olabilir; farklı bir biçimde (DOCX, TXT veya net bir fotoğraf) tekrar deneyin. [${kind}: ${detail.slice(0, 180)}]`)
   }
 
   const wordCount = countWords(text)
