@@ -91,9 +91,10 @@ drop policy if exists profiles_select on public.profiles;
 create policy profiles_select on public.profiles
   for select to authenticated using (id = auth.uid() or public.is_admin());
 
+-- Tarifeler yalnızca giriş yapmış kullanıcılara açıktır; misafir fiyat göremez.
 drop policy if exists rates_select on public.rates;
 create policy rates_select on public.rates
-  for select to anon, authenticated using (true);
+  for select to authenticated using (true);
 
 drop policy if exists settings_select on public.settings;
 create policy settings_select on public.settings

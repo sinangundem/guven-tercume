@@ -23,6 +23,10 @@ export function languageLabel(code: string, fallback?: string) {
   return fallback ?? ISO6391.getName(code) ?? code
 }
 
+export const allLanguages = ISO6391.getAllCodes()
+  .map((code) => ({ code, name: ISO6391.getName(code) }))
+  .sort((left, right) => languageLabel(left.code, left.name).localeCompare(languageLabel(right.code, right.name), 'tr'))
+
 export function countWords(text: string) {
   return (text.match(/[\p{L}\p{N}]+(?:['’][\p{L}\p{N}]+)*/gu) ?? []).length
 }

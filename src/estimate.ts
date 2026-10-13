@@ -2,7 +2,7 @@ import { analyzeFile, getFileKind, isOcrSupported } from './lib/extract.ts'
 import { getAuth, onAuthChange } from './lib/auth.ts'
 import { openAuthDialog } from './auth-ui.ts'
 import { isConfigured, supabase } from './lib/supabase.ts'
-import { languageLabel } from './lib/languages.ts'
+import { allLanguages, languageLabel } from './lib/languages.ts'
 import { formatMoney, formatRate } from './lib/format.ts'
 
 type Rate = { code: string; name: string; rate: number }
@@ -20,10 +20,12 @@ const fileStatus = document.querySelector<HTMLParagraphElement>('#file-status')!
 const countLabel = document.querySelector<HTMLSpanElement>('#word-count')!
 const totalLabel = document.querySelector<HTMLElement>('#estimate-total')!
 const estimateNote = document.querySelector<HTMLElement>('#estimate-note')!
+const unlockButton = document.querySelector<HTMLButtonElement>('#unlock-price')!
 const formMessage = document.querySelector<HTMLParagraphElement>('#form-message')!
 const uploadLabel = document.querySelector<HTMLElement>('.upload-label')!
 
 let rates = new Map<string, Rate>()
+const languageCodes = new Set<string>(allLanguages.map((language) => language.code))
 let analysis: Analysis | null = null
 let currentFile: File | null = null
 let ocrLanguage: string | null = null
@@ -45,26 +47,34 @@ function setLanguagesEnabled(enabled: boolean) {
 
 function fillLanguageOptions(select: HTMLSelectElement, placeholder: string) {
   select.replaceChildren(new Option(placeholder, ''))
-  for (const rate of rates.values()) select.add(new Option(languageLabel(rate.code, rate.name), rate.code))
+  for (const language of allLanguages) select.add(new Option(languageLabel(language.code, language.name), language.code))
 }
 
+// Tarifeler yalnızca giriş yapmış kullanıcılara yüklenir; misafire fiyat gösterilmez.
 function refreshEstimate() {
+  const signedIn = Boolean(getAuth().session)
   const rate = rates.get(sourceSelect.value)
   countLabel.textContent = analysis ? `${analysis.wordCount.toLocaleString('tr-TR')} sözcük` : 'Sözcük sayısı: -'
-  if (analysis && rate && targetSelect.value) {
+  unlockButton.hidden = signedIn || !analysis
+  if (!signedIn) {
+    totalLabel.textContent = analysis ? 'Tahmini tutar: giriş yaptıktan sonra görünür' : 'Tahmini tutar: -'
+    estimateNote.textContent = analysis
+      ? 'Ücretsiz hesap oluşturun; fiyatı anında görün ve teklif talebi gönderin.'
+      : 'Fiyatı görmek için ücretsiz hesap gerekir.'
+  } else if (analysis && rate && targetSelect.value) {
     totalLabel.textContent = `Tahmini tutar: ${formatMoney(Math.round(analysis.wordCount * rate.rate * 100) / 100)}`
     estimateNote.textContent = `${formatRate(rate.rate)} TL / sözcük · kesin fiyat belge kontrolünden sonra belirlenir.`
   } else {
     totalLabel.textContent = 'Tahmini tutar: -'
     estimateNote.textContent = 'Tarife kaynak dile göre hesaplanır.'
   }
-  submitButton.disabled = !analysis || !rate || !targetSelect.value || busy
-  submitButton.textContent = getAuth().session ? 'Teklif talebi gönder' : 'Giriş yap ve talebi gönder'
+  submitButton.disabled = !analysis || !sourceSelect.value || !targetSelect.value || busy || (signedIn && !rate)
+  submitButton.textContent = signedIn ? 'Teklif talebi gönder' : 'Giriş yap ve talebi gönder'
 }
 
 function savePending() {
   if (!analysis) return
-  sessionStorage.setItem(pendingKey, JSON.stringify({
+  localStorage.setItem(pendingKey, JSON.stringify({
     ...analysis, source: sourceSelect.value, target: targetSelect.value, savedAt: Date.now(),
   }))
 }
@@ -90,7 +100,7 @@ async function runAnalysis(file: File) {
     analysis = { fileName: file.name, wordCount: result.wordCount, detectedLanguage: result.detectedLanguage }
     ocrLanguage = kind === 'image' ? language : null
     const detected = result.detectedLanguage
-    if (kind !== 'image' && detected && rates.has(detected)) {
+    if (kind !== 'image' && detected && languageCodes.has(detected)) {
       sourceSelect.value = detected
       fileStatus.textContent = `${file.name} · Algılanan dil: ${languageLabel(detected)}`
     } else if (kind === 'image') {
@@ -99,7 +109,7 @@ async function runAnalysis(file: File) {
       sourceSelect.value = ''
       fileStatus.textContent = `${file.name} · Dil otomatik belirlenemedi; listeden seçin.`
     }
-    if (!targetSelect.value) targetSelect.value = sourceSelect.value === 'tr' ? 'en' : rates.has('tr') ? 'tr' : ''
+    if (!targetSelect.value) targetSelect.value = sourceSelect.value === 'tr' ? 'en' : 'tr'
     savePending()
     showMessage('Dosya analiz edildi. Dilleri kontrol edip iletişim bilgilerinizi girin.', 'success')
   } catch (error) {
@@ -121,7 +131,7 @@ function handleFile(file: File | undefined) {
   ocrLanguage = null
   busy = false
   formMessage.textContent = ''
-  sessionStorage.removeItem(pendingKey)
+  localStorage.removeItem(pendingKey)
   if (!file) {
     fileStatus.textContent = idleStatus
     setLanguagesEnabled(false)
@@ -230,33 +240,37 @@ function prefillContact() {
   if (!email.value) email.value = session.user.email ?? ''
 }
 
-async function initialize() {
-  if (!isConfigured) {
-    showMessage('Teklif sistemi henüz yapılandırılmadı.')
-    return
-  }
+async function loadRates() {
   const { data, error } = await supabase.from('rates').select('code,name,rate').order('name')
   if (error || !data?.length) {
     showMessage('Dil tarifeleri yüklenemedi. Lütfen sayfayı yenileyin.')
     return
   }
   rates = new Map(data.map((row) => [row.code, { code: row.code, name: row.name, rate: Number(row.rate) }]))
+  refreshEstimate()
+}
+
+async function initialize() {
+  if (!isConfigured) {
+    showMessage('Teklif sistemi henüz yapılandırılmadı.')
+    return
+  }
   fillLanguageOptions(sourceSelect, 'Kaynak dili seçin')
   fillLanguageOptions(targetSelect, 'Hedef dili seçin')
 
-  const saved = sessionStorage.getItem(pendingKey)
+  const saved = localStorage.getItem(pendingKey)
   if (saved) {
     try {
       const pending = JSON.parse(saved)
       if (Date.now() - pending.savedAt < pendingTtl && pending.wordCount > 0) {
         analysis = { fileName: pending.fileName, wordCount: pending.wordCount, detectedLanguage: pending.detectedLanguage }
-        sourceSelect.value = rates.has(pending.source) ? pending.source : ''
-        targetSelect.value = rates.has(pending.target) ? pending.target : ''
+        sourceSelect.value = languageCodes.has(pending.source) ? pending.source : ''
+        targetSelect.value = languageCodes.has(pending.target) ? pending.target : ''
         setLanguagesEnabled(true)
         fileStatus.textContent = `${pending.fileName} · önceki analiz geri yüklendi`
       }
     } catch {
-      sessionStorage.removeItem(pendingKey)
+      localStorage.removeItem(pendingKey)
     }
   }
   refreshEstimate()
@@ -291,13 +305,27 @@ uploadLabel.addEventListener('drop', (event) => {
   handleFile(file)
 })
 
+unlockButton.addEventListener('click', () => {
+  savePending()
+  awaitingLogin = true
+  openAuthDialog({
+    mode: 'signup',
+    message: 'Fiyatı görmek ve teklif almak için ücretsiz hesap oluşturun. Analiz sonucunuz korunur.',
+  })
+})
+
 onAuthChange((state) => {
   if (!state.ready) return
+  if (state.session) {
+    if (rates.size === 0) void loadRates()
+  } else {
+    rates = new Map()
+  }
   prefillContact()
   refreshEstimate()
   if (state.session && awaitingLogin) {
     awaitingLogin = false
-    showMessage('Giriş yaptınız. Bilgileri kontrol edip talebi gönderebilirsiniz.', 'success')
+    showMessage('Giriş yaptınız. Fiyat aşağıda görünüyor; bilgileri kontrol edip talebi gönderebilirsiniz.', 'success')
   }
 })
 

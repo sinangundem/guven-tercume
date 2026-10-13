@@ -80,6 +80,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
             <span id="word-count">Sözcük sayısı: -</span>
             <strong id="estimate-total">Tahmini tutar: -</strong>
             <small id="estimate-note">Tarife kaynak dile göre hesaplanır.</small>
+            <button type="button" id="unlock-price" class="unlock-price" hidden>Fiyatı görmek için ücretsiz kayıt ol</button>
           </div>
           <div class="contact-fields">
             <label>

@@ -188,6 +188,26 @@ textarea {
   font-size: 1.18rem;
 }
 
+.estimate-result .unlock-price {
+  min-height: 42px;
+  margin-top: 8px;
+  border: 1px solid var(--sage-dark);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--sage-dark);
+  cursor: pointer;
+  font: 800 0.88rem var(--sans);
+}
+
+.estimate-result .unlock-price:hover {
+  background: var(--sage-dark);
+  color: white;
+}
+
+.estimate-result .unlock-price[hidden] {
+  display: none;
+}
+
 .contact-fields label {
   min-width: 0;
 }
