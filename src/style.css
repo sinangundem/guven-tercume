@@ -321,6 +321,12 @@ textarea {
   padding: 0 18px;
 }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
 .hero-section {
   display: grid;
   grid-template-columns: minmax(0, 1.14fr) minmax(340px, 0.86fr);

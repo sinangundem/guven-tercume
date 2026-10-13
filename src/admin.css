@@ -455,6 +455,55 @@
   color: var(--muted);
 }
 
+.gate {
+  display: grid;
+  min-height: 46vh;
+  place-content: center;
+  justify-items: center;
+  gap: 18px;
+  text-align: center;
+}
+
+.gate h1 {
+  max-width: 640px;
+  margin: 0;
+  font-family: var(--serif);
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  line-height: 1.05;
+}
+
+.gate .eyebrow {
+  margin: 0;
+}
+
+.status-pill {
+  display: inline-flex;
+  border-radius: 999px;
+  background: #e9efe8;
+  color: var(--sage-dark);
+  padding: 4px 12px;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.status-pill.new {
+  background: #f8f3e8;
+  color: #825f1e;
+}
+
+.admin-header-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.admin-header-actions .admin-secondary {
+  text-decoration: none;
+}
+
+.users-table {
+  min-width: 560px;
+}
+
 @media (max-width: 760px) {
   .admin-main {
     width: min(100% - 28px, 1360px);

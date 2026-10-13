@@ -1,6 +1,15 @@
-type Language = { code: string; name: string }
-type Estimate = { wordCount: number; ratePerWord: number; estimatedTotal: number; currency: string }
-type Preview = { previewId: string; wordCount: number; detectedLanguage: string | null; fileName: string }
+import { analyzeFile, getFileKind, isOcrSupported } from './lib/extract.ts'
+import { getAuth, onAuthChange } from './lib/auth.ts'
+import { openAuthDialog } from './auth-ui.ts'
+import { isConfigured, supabase } from './lib/supabase.ts'
+import { languageLabel } from './lib/languages.ts'
+import { formatMoney, formatRate } from './lib/format.ts'
+
+type Rate = { code: string; name: string; rate: number }
+type Analysis = { fileName: string; wordCount: number; detectedLanguage: string | null }
+
+const pendingKey = 'gt-pending-quote'
+const pendingTtl = 2 * 60 * 60 * 1000
 
 const form = document.querySelector<HTMLFormElement>('#estimate-form')!
 const fileInput = document.querySelector<HTMLInputElement>('#document-file')!
@@ -12,180 +21,255 @@ const countLabel = document.querySelector<HTMLSpanElement>('#word-count')!
 const totalLabel = document.querySelector<HTMLElement>('#estimate-total')!
 const estimateNote = document.querySelector<HTMLElement>('#estimate-note')!
 const formMessage = document.querySelector<HTMLParagraphElement>('#form-message')!
-const languageNames = new Intl.DisplayNames(['tr'], { type: 'language' })
-let preview: Preview | null = null
-let languages: Language[] = []
-let calculating = false
+const uploadLabel = document.querySelector<HTMLElement>('.upload-label')!
 
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  const response = await fetch(url, options)
-  const result = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(result.error || 'İstek tamamlanamadı.')
-  return result as T
-}
+let rates = new Map<string, Rate>()
+let analysis: Analysis | null = null
+let currentFile: File | null = null
+let ocrLanguage: string | null = null
+let busy = false
+let runId = 0
+let awaitingLogin = false
+
+const idleStatus = 'Dosya analiz edildiğinde sözcük sayısı burada görünür.'
 
 function showMessage(message: string, kind: 'error' | 'success' = 'error') {
   formMessage.textContent = message
   formMessage.className = `form-message ${kind}`
 }
 
-function displayLanguage(language: Language) {
-  const localized = languageNames.of(language.code)
-  return localized && localized.toLocaleLowerCase('tr') !== language.code ? localized : language.name
+function setLanguagesEnabled(enabled: boolean) {
+  sourceSelect.disabled = !enabled
+  targetSelect.disabled = !enabled
 }
 
 function fillLanguageOptions(select: HTMLSelectElement, placeholder: string) {
   select.replaceChildren(new Option(placeholder, ''))
-  for (const language of languages) {
-    select.add(new Option(displayLanguage(language), language.code))
-  }
+  for (const rate of rates.values()) select.add(new Option(languageLabel(rate.code, rate.name), rate.code))
 }
 
-function refreshSubmitState() {
-  submitButton.disabled = !preview || !sourceSelect.value || !targetSelect.value || calculating
-}
-
-async function refreshEstimate() {
-  if (!preview || !sourceSelect.value || !targetSelect.value) {
-    countLabel.textContent = `Sözcük sayısı: ${preview?.wordCount ?? '-'}`
+function refreshEstimate() {
+  const rate = rates.get(sourceSelect.value)
+  countLabel.textContent = analysis ? `${analysis.wordCount.toLocaleString('tr-TR')} sözcük` : 'Sözcük sayısı: -'
+  if (analysis && rate && targetSelect.value) {
+    totalLabel.textContent = `Tahmini tutar: ${formatMoney(Math.round(analysis.wordCount * rate.rate * 100) / 100)}`
+    estimateNote.textContent = `${formatRate(rate.rate)} TL / sözcük · kesin fiyat belge kontrolünden sonra belirlenir.`
+  } else {
     totalLabel.textContent = 'Tahmini tutar: -'
     estimateNote.textContent = 'Tarife kaynak dile göre hesaplanır.'
-    refreshSubmitState()
-    return
   }
+  submitButton.disabled = !analysis || !rate || !targetSelect.value || busy
+  submitButton.textContent = getAuth().session ? 'Teklif talebi gönder' : 'Giriş yap ve talebi gönder'
+}
 
-  calculating = true
-  refreshSubmitState()
+function savePending() {
+  if (!analysis) return
+  sessionStorage.setItem(pendingKey, JSON.stringify({
+    ...analysis, source: sourceSelect.value, target: targetSelect.value, savedAt: Date.now(),
+  }))
+}
+
+async function runAnalysis(file: File) {
+  const id = ++runId
+  busy = true
+  analysis = null
+  refreshEstimate()
+  const kind = getFileKind(file)
+  const language = sourceSelect.value
+  fileStatus.textContent = kind === 'image'
+    ? `${file.name} okunuyor… (ilk kullanımda dil verisi indirilir)`
+    : `${file.name} analiz ediliyor…`
   try {
-    const estimate = await request<Estimate>('/api/estimate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        previewId: preview.previewId,
-        sourceLanguage: sourceSelect.value,
-        targetLanguage: targetSelect.value,
-      }),
+    const result = await analyzeFile(file, {
+      ocrLanguage: language,
+      onProgress: (ratio) => {
+        if (id === runId) fileStatus.textContent = `${file.name} okunuyor… %${Math.round(ratio * 100)}`
+      },
     })
-    const formattedTotal = new Intl.NumberFormat('tr-TR', {
-      style: 'currency',
-      currency: estimate.currency,
-    }).format(estimate.estimatedTotal)
-    countLabel.textContent = `${estimate.wordCount.toLocaleString('tr-TR')} sözcük`
-    totalLabel.textContent = `Tahmini tutar: ${formattedTotal}`
-    estimateNote.textContent = `${estimate.ratePerWord.toLocaleString('tr-TR', { minimumFractionDigits: 2 })} TL / sözcük · kesin fiyat belge kontrolünden sonra belirlenir.`
+    if (id !== runId) return
+    analysis = { fileName: file.name, wordCount: result.wordCount, detectedLanguage: result.detectedLanguage }
+    ocrLanguage = kind === 'image' ? language : null
+    const detected = result.detectedLanguage
+    if (kind !== 'image' && detected && rates.has(detected)) {
+      sourceSelect.value = detected
+      fileStatus.textContent = `${file.name} · Algılanan dil: ${languageLabel(detected)}`
+    } else if (kind === 'image') {
+      fileStatus.textContent = `${file.name} · Fotoğraftan okunan metin sayıldı`
+    } else {
+      sourceSelect.value = ''
+      fileStatus.textContent = `${file.name} · Dil otomatik belirlenemedi; listeden seçin.`
+    }
+    if (!targetSelect.value) targetSelect.value = sourceSelect.value === 'tr' ? 'en' : rates.has('tr') ? 'tr' : ''
+    savePending()
+    showMessage('Dosya analiz edildi. Dilleri kontrol edip iletişim bilgilerinizi girin.', 'success')
   } catch (error) {
-    showMessage(error instanceof Error ? error.message : 'Fiyat hesaplanamadı.')
-    totalLabel.textContent = 'Tahmini tutar: -'
+    if (id !== runId) return
+    fileStatus.textContent = file.name
+    showMessage(error instanceof Error ? error.message : 'Dosya analiz edilemedi.')
   } finally {
-    calculating = false
-    refreshSubmitState()
+    if (id === runId) {
+      busy = false
+      refreshEstimate()
+    }
   }
 }
 
-async function analyzeFile(event: Event) {
-  const input = event.currentTarget as HTMLInputElement
-  const file = input.files?.[0]
-  preview = null
-  sourceSelect.disabled = true
-  targetSelect.disabled = true
-  refreshSubmitState()
+function handleFile(file: File | undefined) {
+  runId++
+  analysis = null
+  currentFile = null
+  ocrLanguage = null
+  busy = false
   formMessage.textContent = ''
-  totalLabel.textContent = 'Tahmini tutar: -'
-  countLabel.textContent = 'Sözcük sayısı: -'
+  sessionStorage.removeItem(pendingKey)
   if (!file) {
-    fileStatus.textContent = 'Dosya analiz edildiğinde sözcük sayısı burada görünür.'
+    fileStatus.textContent = idleStatus
+    setLanguagesEnabled(false)
+    refreshEstimate()
     return
   }
-
-  fileStatus.textContent = `${file.name} analiz ediliyor...`
-  const payload = new FormData()
-  payload.append('document', file)
-  try {
-    const result = await request<Preview>('/api/estimate/preview', { method: 'POST', body: payload })
-    preview = result
-    countLabel.textContent = `${result.wordCount.toLocaleString('tr-TR')} sözcük`
-    if (result.detectedLanguage) {
-      sourceSelect.value = result.detectedLanguage
-      fileStatus.textContent = `${result.fileName} · Algılanan dil: ${displayLanguage(languages.find(({ code }) => code === result.detectedLanguage)!)}`
-    } else {
-      sourceSelect.value = ''
-      fileStatus.textContent = `${result.fileName} · Dil otomatik belirlenemedi; listeden seçin.`
-    }
-    targetSelect.value = sourceSelect.value === 'tr' ? 'en' : 'tr'
-    sourceSelect.disabled = false
-    targetSelect.disabled = false
-    showMessage('Dosya analiz edildi. Dil seçimlerini kontrol edip iletişim bilgilerinizi girin.', 'success')
-    await refreshEstimate()
-  } catch (error) {
+  if (!getFileKind(file)) {
     fileStatus.textContent = file.name
-    showMessage(error instanceof Error ? error.message : 'Dosya analiz edilemedi.')
+    setLanguagesEnabled(false)
+    showMessage('PDF, DOCX, TXT veya fotoğraf (JPG, PNG, WEBP) yükleyin.')
+    refreshEstimate()
+    return
   }
+  currentFile = file
+  setLanguagesEnabled(true)
+  if (getFileKind(file) === 'image' && !isOcrSupported(sourceSelect.value)) {
+    sourceSelect.value = ''
+    fileStatus.textContent = `${file.name} · Fotoğraftaki metnin dilini “Kaynak dil” alanından seçin; metin otomatik okunacak.`
+    refreshEstimate()
+    return
+  }
+  void runAnalysis(file)
+}
+
+function onSourceChange() {
+  if (currentFile && getFileKind(currentFile) === 'image' && sourceSelect.value && sourceSelect.value !== ocrLanguage) {
+    if (isOcrSupported(sourceSelect.value)) {
+      void runAnalysis(currentFile)
+      return
+    }
+    showMessage('Fotoğraf okuma bu dil için desteklenmiyor. PDF, DOCX veya TXT yükleyin.')
+  }
+  savePending()
+  refreshEstimate()
 }
 
 async function submitQuote(event: Event) {
   event.preventDefault()
-  if (!preview) {
+  if (!analysis) {
     showMessage('Önce belgenizi yükleyin.')
     return
   }
-  const fields = new FormData(form)
-  const body = {
-    previewId: preview.previewId,
-    customerName: fields.get('customerName'),
-    email: fields.get('email'),
-    phone: fields.get('phone'),
-    note: fields.get('note'),
-    sourceLanguage: sourceSelect.value,
-    targetLanguage: targetSelect.value,
-    privacyConsent: fields.get('privacyConsent') === 'on',
+  if (!form.checkValidity()) {
+    form.reportValidity()
+    return
   }
+  const { session } = getAuth()
+  if (!session) {
+    savePending()
+    awaitingLogin = true
+    openAuthDialog({
+      mode: 'signin',
+      message: 'Teklif talebini göndermek için giriş yapın veya ücretsiz hesap oluşturun. Analiz sonucunuz korunur.',
+    })
+    return
+  }
+
+  const fields = new FormData(form)
   submitButton.disabled = true
   submitButton.textContent = 'Talep gönderiliyor...'
   try {
-    const result = await request<{ id: string; estimatedTotal: number; notificationStatus: string }>('/api/quotes', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+    const { data, error } = await supabase.rpc('create_quote', {
+      p_customer_name: String(fields.get('customerName') ?? ''),
+      p_email: String(fields.get('email') ?? ''),
+      p_phone: String(fields.get('phone') ?? ''),
+      p_file_name: analysis.fileName,
+      p_note: String(fields.get('note') ?? ''),
+      p_word_count: analysis.wordCount,
+      p_source_language: sourceSelect.value,
+      p_target_language: targetSelect.value,
     })
-    const emailMessage = result.notificationStatus === 'sent'
+    if (error) throw new Error(error.message)
+
+    let notification = 'failed'
+    try {
+      const response = await fetch('/api/notify-quote', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
+        body: JSON.stringify({ quoteId: data.id }),
+      })
+      notification = (await response.json()).notificationStatus ?? 'failed'
+    } catch {
+      notification = 'failed'
+    }
+    const emailMessage = notification === 'sent'
       ? 'Talebiniz kaydedildi ve Güven Tercüme’ye e-posta ile iletildi.'
-      : result.notificationStatus === 'smtp_not_configured'
-        ? 'Talebiniz kaydedildi. E-posta bildirimi yapılandırılmadığı için yönetici panelinden takip edilecek.'
-        : 'Talebiniz kaydedildi ancak e-posta gönderilemedi. Yönetici panelinden takip edilecek.'
-    showMessage(`${emailMessage} Talep numarası: ${result.id.slice(0, 8).toUpperCase()}`, 'success')
+      : notification === 'smtp_not_configured'
+        ? 'Talebiniz kaydedildi ve yönetim paneline düştü.'
+        : 'Talebiniz kaydedildi ancak e-posta bildirimi gönderilemedi; yönetim panelinden takip edilecek.'
     form.reset()
-    preview = null
-    fileStatus.textContent = 'Dosya analiz edildiğinde sözcük sayısı burada görünür.'
-    countLabel.textContent = 'Sözcük sayısı: -'
-    totalLabel.textContent = 'Tahmini tutar: -'
-    estimateNote.textContent = 'Tarife kaynak dile göre hesaplanır.'
-    sourceSelect.disabled = true
-    targetSelect.disabled = true
+    handleFile(undefined)
+    showMessage(`${emailMessage} Talep numarası: ${String(data.id).slice(0, 8).toUpperCase()}`, 'success')
   } catch (error) {
     showMessage(error instanceof Error ? error.message : 'Talep kaydedilemedi.')
   } finally {
-    submitButton.textContent = 'Teklif talebi gönder'
-    refreshSubmitState()
+    refreshEstimate()
   }
+}
+
+function prefillContact() {
+  const { session, profile } = getAuth()
+  if (!session) return
+  const name = form.elements.namedItem('customerName') as HTMLInputElement
+  const email = form.elements.namedItem('email') as HTMLInputElement
+  if (!name.value) name.value = profile?.full_name ?? ''
+  if (!email.value) email.value = session.user.email ?? ''
 }
 
 async function initialize() {
-  try {
-    const config = await request<{ languages: Language[] }>('/api/config')
-    languages = config.languages
-    fillLanguageOptions(sourceSelect, 'Kaynak dili seçin')
-    fillLanguageOptions(targetSelect, 'Hedef dili seçin')
-  } catch (error) {
-    showMessage(error instanceof Error ? error.message : 'Dil listesi yüklenemedi.')
+  if (!isConfigured) {
+    showMessage('Teklif sistemi henüz yapılandırılmadı.')
+    return
   }
+  const { data, error } = await supabase.from('rates').select('code,name,rate').order('name')
+  if (error || !data?.length) {
+    showMessage('Dil tarifeleri yüklenemedi. Lütfen sayfayı yenileyin.')
+    return
+  }
+  rates = new Map(data.map((row) => [row.code, { code: row.code, name: row.name, rate: Number(row.rate) }]))
+  fillLanguageOptions(sourceSelect, 'Kaynak dili seçin')
+  fillLanguageOptions(targetSelect, 'Hedef dili seçin')
+
+  const saved = sessionStorage.getItem(pendingKey)
+  if (saved) {
+    try {
+      const pending = JSON.parse(saved)
+      if (Date.now() - pending.savedAt < pendingTtl && pending.wordCount > 0) {
+        analysis = { fileName: pending.fileName, wordCount: pending.wordCount, detectedLanguage: pending.detectedLanguage }
+        sourceSelect.value = rates.has(pending.source) ? pending.source : ''
+        targetSelect.value = rates.has(pending.target) ? pending.target : ''
+        setLanguagesEnabled(true)
+        fileStatus.textContent = `${pending.fileName} · önceki analiz geri yüklendi`
+      }
+    } catch {
+      sessionStorage.removeItem(pendingKey)
+    }
+  }
+  refreshEstimate()
 }
 
-fileInput.addEventListener('change', (event) => void analyzeFile(event))
-sourceSelect.addEventListener('change', () => void refreshEstimate())
-targetSelect.addEventListener('change', () => void refreshEstimate())
+fileInput.addEventListener('change', () => handleFile(fileInput.files?.[0]))
+sourceSelect.addEventListener('change', onSourceChange)
+targetSelect.addEventListener('change', () => {
+  savePending()
+  refreshEstimate()
+})
 form.addEventListener('submit', (event) => void submitQuote(event))
 
-const uploadLabel = document.querySelector<HTMLElement>('.upload-label')!
 for (const eventName of ['dragenter', 'dragover']) {
   uploadLabel.addEventListener(eventName, (event) => {
     event.preventDefault()
@@ -204,7 +288,17 @@ uploadLabel.addEventListener('drop', (event) => {
   const transfer = new DataTransfer()
   transfer.items.add(file)
   fileInput.files = transfer.files
-  fileInput.dispatchEvent(new Event('change', { bubbles: true }))
+  handleFile(file)
+})
+
+onAuthChange((state) => {
+  if (!state.ready) return
+  prefillContact()
+  refreshEstimate()
+  if (state.session && awaitingLogin) {
+    awaitingLogin = false
+    showMessage('Giriş yaptınız. Bilgileri kontrol edip talebi gönderebilirsiniz.', 'success')
+  }
 })
 
 void initialize()

@@ -1,58 +1,51 @@
 # Güven Tercüme
 
-Vite + TypeScript arayüzü ve Express API'si olan tam yığın tercüme teklif uygulaması.
+Vite + TypeScript arayüzü, Supabase (hesaplar, veritabanı, Google girişi) ve tek bir Vercel Function (`api/notify-quote.js`, e-posta bildirimi) ile çalışır.
 
-## Gereksinimler
+## Nasıl çalışır
 
-- Node.js 22.12 veya üzeri
-- SMTP bilgileri yalnızca otomatik e-posta gönderimi için gereklidir; SMTP kurulmasa da teklifler yönetim panelinde saklanır.
+- Belge (PDF, DOCX, TXT, fotoğraf) **kullanıcının tarayıcısında** okunur; sözcük sayılır, dil tahmin edilir. Fotoğraflar tarayıcıda OCR ile okunur. Belge sunucuya gönderilmez.
+- Fiyat, kaynak dilin tarifesiyle hesaplanır. Teklif gönderirken tutar veritabanında yeniden hesaplanır, tarayıcı tutarı belirleyemez.
+- Teklif göndermek için hesap gerekir (Google veya e-posta/şifre). Yeni kayıtlar **yetkisizdir**; yönetici rolünü yalnızca bir yönetici verebilir.
+- Yönetim paneli `/admin`, kullanıcı teklif geçmişi `/hesabim`. `/admin` yalnızca `admin` rolündeki hesaplara açılır; yetki kontrolü veritabanı satır güvenliği (RLS) ile zorunlu kılınır.
 
-## Yerel kurulum
+## Kurulum
+
+1. **Supabase projesi** oluşturun (supabase.com). `Project Settings → API` içinden `Project URL`, `anon public` ve `service_role` anahtarlarını alın.
+2. `SQL Editor` içinde [supabase/schema.sql](supabase/schema.sql) dosyasının tamamını çalıştırın (tablolar, güvenlik kuralları, 183 dil tarifesi).
+3. **Google girişi**: Google Cloud Console → OAuth istemcisi (Web). Yetkili yönlendirme URI'si: `https://PROJE-ID.supabase.co/auth/v1/callback`. İstemci kimliği ve gizli anahtarını Supabase `Authentication → Providers → Google` bölümüne girin.
+4. Supabase `Authentication → URL Configuration`: `Site URL` olarak site adresinizi (örn. `https://www.guventercume.com`), `Redirect URLs` olarak ayrıca `https://www.guventercume.com/**`, Vercel önizleme adresinizi ve `http://localhost:5173/**` adreslerini ekleyin.
+5. **Vercel** `Settings → Environment Variables` içine [.env.example](.env.example) değişkenlerini ekleyin (`VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`; e-posta için `SMTP_*`). `service_role` anahtarı gizlidir; `VITE_` önekiyle eklemeyin. Değişkenleri ekledikten sonra yeniden deploy edin.
+6. **İlk yönetici**: Sitede kendi hesabınızla bir kez kayıt olun/giriş yapın, sonra SQL Editor'de çalıştırın:
+
+   ```sql
+   update public.profiles set role = 'admin' where email = 'SIZIN-EPOSTANIZ';
+   ```
+
+   Sonraki yöneticileri `/admin → Kullanıcılar` sekmesinden atayabilirsiniz.
+7. Yönetim panelinde dil tarifelerini ve bildirim e-posta adresini ayarlayın. Başlangıç değeri tüm diller için 2,50 TL/sözcüktür.
+
+Vercel'de Framework Preset `Vite`, Build Command `npm run build`, Output Directory `dist` olmalıdır. [vercel.json](vercel.json) `/admin` ve `/hesabim` adreslerinin 404 vermemesini sağlar.
+
+## Yerel çalışma
 
 ```powershell
 npm install
-Copy-Item .env.example .env
-```
-
-`.env` içinde uzun ve benzersiz bir `ADMIN_PASSWORD` belirleyin. E-posta bildirimi için `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` ve gerekirse `SMTP_FROM` alanlarını doldurun.
-
-```powershell
+Copy-Item .env.example .env.local   # değerleri doldurun
 npm run dev
 ```
 
-Site `http://localhost:5173/`, yönetim paneli `http://localhost:5173/admin` adresindedir. Geliştirme sunucusu API'yi `localhost:3000` üzerinde çalıştırır ve arayüz isteklerini proxy eder.
+`npm run dev` hem siteyi hem `/api/notify-quote` işlevini çalıştırır.
 
-`.env` oluşturmazsanız API yalnızca o çalıştırma için geçici yönetici parolası üretip terminale yazar. Node süreci yeniden başlayınca bu parola değişir; normal kullanımda `.env` tanımlayın.
+## Notlar
 
-## Teklif ve tarife özellikleri
-
-- PDF (metin katmanı bulunan), DOCX ve TXT kabul edilir; tek dosya en fazla 10 MB ve PDF en fazla 500 sayfa olabilir.
-- DOCX ve PDF içeriği bellekte analiz edilir. Belge içeriği diske kaydedilmez; tarife, dosya adı, sözcük sayısı, dil çifti ve müşterinin iletişim bilgileri saklanır.
-- Taranmış/görüntü tabanlı PDF için OCR bu sürümde yoktur. Metin seçilebilir PDF kullanın; okunabilir metin yoksa uygulama yüklemeyi açıkça reddeder.
-- Dil otomatik tahmin edilir; tahmin desteklenmiyorsa veya yanlışsa kullanıcı 183 dilden kaynak dili kendisi seçebilir.
-- Fiyat kaynak dilin yönetici panelindeki TL/sözcük tarifesi × sözcük sayısıdır. Başlangıçtaki 2,50 TL değerleri örnek tarifedir; gerçek fiyatları yayına çıkmadan önce `/admin` içinden ayarlayın.
-- Ad soyad, geçerli e-posta, telefon ve bilgilendirme onayı teklif göndermek için zorunludur.
-- SMTP tanımlıysa bildirim yönetici panelinde girilen e-posta adresine gönderilir. SMTP yoksa veya gönderim başarısızsa teklif yine kaydedilir ve panelde durumu gösterilir.
-
-## Üretim build ve çalıştırma
-
-```powershell
-npm ci
-npm run build
-npm start
-```
-
-Express, `dist/` sitesini ve API'yi aynı porttan sunar. Üretim sunucusunda `.env` tanımlayın ve Node uygulamasını PM2, systemd ya da hosting firmasının Node.js uygulama yöneticisi ile sürekli çalışır tutun. `server-data/store.json` uygulama tarafından oluşturulur; sunucunun bu klasöre yazma izni olmalı ve düzenli yedeği alınmalıdır.
-
-Bu artık yalnızca statik site değildir. `dist/` içeriğini tek başına `public_html` içine yüklemek teklif API'sini, yönetici girişini ve depolamayı çalıştırmaz. Node.js uygulaması çalıştırabilen VPS veya hosting gerekir; cPanel kullanacaksanız hosting paketinde Node.js uygulaması desteğini doğrulayın. Netlify/Vercel'e statik yayın yapacaksanız ayrıca API'yi serverless işleve ve kalıcı depolamayı uygun veritabanına taşımanız gerekir.
-
-Domaini, Node uygulaması ve HTTPS çalışır hale geldikten sonra hostingin verdiği A/CNAME veya nameserver değerleriyle yönlendirin. WHOIS ekinde mevcut nameserver'lar `W1.HOSTHANE.COM` ve `W2.HOSTHANE.COM` görünüyordu; mevcut Hosthane paketinin Node.js destekleyip desteklemediğini teyit edin.
+- E-posta bildirimi için SMTP bilgisi gerekir; yoksa talepler yine yönetim panelinde görünür.
+- Metin katmanı olmayan taranmış PDF okunamaz; sayfanın fotoğrafını yükleyin. Fotoğraf OCR'ı Tesseract'ın desteklediği dillerde çalışır ve kullanıcı belge dilini seçmelidir. İlk okumada dil verisi internetten indirilir.
+- Teklif kayıtları müşteri iletişim bilgisi içerir; KVKK aydınlatma metni ve saklama süresini belirleyin.
+- Eski sürümdeki yönetici parolası ve Express sunucusu kaldırıldı; geçerli tek yönetim yolu rol tabanlı hesaplardır.
 
 ## İletişim bilgileri
 
-- Merkez telefon: `0212 343 80 65`
-- GSM / WhatsApp: `0533 519 30 17`
+- Telefon: `0212 343 80 65` · GSM/WhatsApp: `0533 519 30 17`
 - E-posta: `guventercume@hotmail.com`
-- Adres: `Vatan Caddesi, Şadoğlu İşhanı No:18/2 D:8 Çağlayan - İstanbul`
-
-Talep kayıtları müşteri iletişim bilgileri içerir. Yayına almadan önce KVKK bilgilendirme/metnini şirketinizin hukuk ve operasyon sürecine göre tamamlayın, erişimi sınırlayın ve saklama-silme süresi belirleyin. Yönetici parolası ve SMTP parolalarını Git'e eklemeyin.
+- Adres: Vatan Caddesi, Şadoğlu İşhanı No:18/2 D:8 Çağlayan - İstanbul

@@ -1,4 +1,8 @@
 import './style.css'
+import { initAuth } from './lib/auth.ts'
+import { mountAuthMenu } from './auth-ui.ts'
+
+function renderHome() {
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header class="site-header">
     <a class="brand" href="#top" aria-label="Güven Tercüme ana sayfa">
@@ -15,7 +19,10 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <a href="#sss">SSS</a>
       <a href="#iletisim">İletişim</a>
     </nav>
-    <a class="header-cta" href="tel:+902123438065">Hemen ara</a>
+    <div class="header-actions">
+      <a class="header-cta" href="tel:+902123438065">Hemen ara</a>
+      <div id="auth-slot"></div>
+    </div>
   </header>
 
   <main id="top">
@@ -51,8 +58,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
           <label class="upload-label" for="document-file">
             <span class="upload-icon" aria-hidden="true">↑</span>
             <strong>Belge seç veya buraya bırak</strong>
-            <small>PDF, DOCX veya TXT · en fazla 10 MB</small>
-            <input id="document-file" type="file" name="document" accept=".pdf,.docx,.txt,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required />
+            <small>PDF, DOCX, TXT veya fotoğraf (JPG, PNG, WEBP)</small>
+            <input id="document-file" type="file" name="document" accept=".pdf,.docx,.txt,.jpg,.jpeg,.png,.webp,.bmp,image/*,application/pdf,text/plain,application/vnd.openxmlformats-officedocument.wordprocessingml.document" />
           </label>
           <p class="file-status" id="file-status" role="status">Dosya analiz edildiğinde sözcük sayısı burada görünür.</p>
           <div class="language-fields">
@@ -97,7 +104,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
             <span>Teklif talebim için iletişim bilgilerimin kullanılmasını kabul ediyorum.</span>
           </label>
           <button type="submit" id="quote-submit" disabled>Teklif talebi gönder</button>
-          <small class="form-note">Dosya metni yalnızca analiz sırasında işlenir ve saklanmaz. Talep ve iletişim bilgileriniz Güven Tercüme teklif takibi için kaydedilir.</small>
+          <small class="form-note">Belgeniz tarayıcınızda okunur, sunucuya yüklenmez. Teklif talebi için ücretsiz hesap gerekir; talep ve iletişim bilgileriniz teklif takibi için kaydedilir.</small>
           <p class="form-message" id="form-message" role="status"></p>
         </form>
       </aside>
@@ -241,12 +248,18 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <footer class="site-footer">
     <strong>Güven Tercüme Bürosu</strong>
     <span>Vatan Caddesi, Şadoğlu İşhanı No:18/2 D:8 Çağlayan - İstanbul | 0212 343 80 65</span>
-    <a href="/admin">Yönetici girişi</a>
   </footer>
 `
+}
 
- if (window.location.pathname === '/admin' || window.location.pathname === '/admin/') {
-   void import('./admin.ts')
- } else {
-   void import('./estimate.ts')
- }
+const path = window.location.pathname.replace(/\/+$/, '') || '/'
+if (path === '/admin') {
+  void import('./admin.ts')
+} else if (path === '/hesabim') {
+  void import('./account.ts')
+} else {
+  renderHome()
+  mountAuthMenu(document.querySelector<HTMLElement>('#auth-slot')!)
+  void import('./estimate.ts')
+  void initAuth()
+}
