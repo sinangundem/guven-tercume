@@ -11,8 +11,9 @@ const greetingSpans = [...greetings, ...greetings].map((word) => `<span>${word}<
 function renderHome() {
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <header class="site-header">
-    <a class="brand" href="#top" aria-label="Güven Tercüme ana sayfa">${brandMarkup()}</a>
+    <a class="brand" href="#anasayfa" aria-label="Güven Tercüme ana sayfa">${brandMarkup()}</a>
     <nav class="nav" id="site-nav" aria-label="Ana menü">
+      <a href="#anasayfa">Ana Sayfa</a>
       <a href="#hizmetler">Hizmetler</a>
       <a href="#belgeler">Belgeler</a>
       <a href="#surec">Süreç</a>
@@ -28,7 +29,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   </header>
 
   <main id="top">
-    <section class="hero-section">
+    <section class="hero-section" id="anasayfa">
       <div class="hero-copy">
         <p class="eyebrow">Yeminli ve noter onaylı tercüme bürosu</p>
         <h1>Resmi belgeleriniz için hızlı, güvenilir ve takip edilen tercüme.</h1>
@@ -84,6 +85,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
             <small id="estimate-note">Fiyatı görmek için ücretsiz hesap gerekir.</small>
             <button type="button" id="unlock-price" class="unlock-price" hidden>Fiyatı görmek için ücretsiz kayıt ol</button>
           </div>
+          <div id="contact-step" class="contact-step" hidden>
           <div class="contact-fields">
             <label>
               Ad Soyad
@@ -108,6 +110,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
           </label>
           <button type="submit" id="quote-submit" disabled>Teklif talebi gönder</button>
           <small class="form-note">Belgeniz tarayıcınızda okunur, sunucuya yüklenmez. Teklif talebi için ücretsiz hesap gerekir; talep ve iletişim bilgileriniz teklif takibi için kaydedilir.</small>
+          </div>
           <p class="form-message" id="form-message" role="status"></p>
         </form>
       </aside>
@@ -293,6 +296,25 @@ function setupMenu() {
   }
   toggle.addEventListener('click', () => setOpen(!header.classList.contains('menu-open')))
   header.querySelectorAll('.nav a').forEach((link) => link.addEventListener('click', () => setOpen(false)))
+
+  // Ekranda görünen bölümün menü bağlantısını işaretler.
+  const links = new Map(
+    [...header.querySelectorAll<HTMLAnchorElement>('.nav a')].map((link) => [link.getAttribute('href')!.slice(1), link]),
+  )
+  const observer = new IntersectionObserver(
+    (entries) => {
+      for (const entry of entries) {
+        if (!entry.isIntersecting) continue
+        links.forEach((link) => link.classList.remove('active'))
+        links.get(entry.target.id)?.classList.add('active')
+      }
+    },
+    { rootMargin: '-45% 0px -50% 0px' },
+  )
+  links.forEach((_link, id) => {
+    const section = document.getElementById(id)
+    if (section) observer.observe(section)
+  })
 }
 if (path === '/admin') {
   void import('./admin.ts')

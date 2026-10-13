@@ -395,6 +395,45 @@ h2 {
   }
 }
 
+/* Ana sayfa bölümü tek ekrana sığar: iletişim alanları belge analizinden sonra açılır. */
+.contact-step {
+  display: grid;
+  gap: 14px;
+}
+
+.contact-step[hidden] {
+  display: none;
+}
+
+.nav a.active {
+  color: var(--sage-dark);
+}
+
+.nav a.active::after {
+  transform: scaleX(1);
+}
+
+.hero-section {
+  padding-block: clamp(20px, 4vh, 48px);
+}
+
+.hero-copy h1 {
+  font-size: clamp(2.15rem, min(6vw, 8.4vh), 4.8rem);
+}
+
+.quote-card {
+  padding: clamp(18px, 2.4vw, 28px);
+}
+
+.quote-card form {
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.upload-label {
+  min-height: 108px;
+}
+
 /* Tam ekran sayfa bölümleri: menü bağlantıları her bölümü ekranı dolduracak şekilde açar. */
 :root {
   --header-h: 78px;

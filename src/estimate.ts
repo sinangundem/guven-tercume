@@ -21,6 +21,7 @@ const countLabel = document.querySelector<HTMLSpanElement>('#word-count')!
 const totalLabel = document.querySelector<HTMLElement>('#estimate-total')!
 const estimateNote = document.querySelector<HTMLElement>('#estimate-note')!
 const unlockButton = document.querySelector<HTMLButtonElement>('#unlock-price')!
+const contactStep = document.querySelector<HTMLElement>('#contact-step')!
 const formMessage = document.querySelector<HTMLParagraphElement>('#form-message')!
 const uploadLabel = document.querySelector<HTMLElement>('.upload-label')!
 
@@ -56,6 +57,7 @@ function refreshEstimate() {
   const rate = rates.get(sourceSelect.value)
   countLabel.textContent = analysis ? `${analysis.wordCount.toLocaleString('tr-TR')} sözcük` : 'Sözcük sayısı: -'
   unlockButton.hidden = signedIn || !analysis
+  contactStep.hidden = !analysis
   if (!signedIn) {
     totalLabel.textContent = analysis ? 'Tahmini tutar: giriş yaptıktan sonra görünür' : 'Tahmini tutar: -'
     estimateNote.textContent = analysis
